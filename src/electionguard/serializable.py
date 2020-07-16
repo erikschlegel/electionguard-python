@@ -24,7 +24,7 @@ class Serializable(Generic[T]):
     Serializable class with methods to convert to json
     """
 
-    def to_json(self) -> str:
+    def to_json(self, strip_privates=True) -> str:
         """
         Serialize to json
         :return: the json representation of this object
@@ -34,7 +34,7 @@ class Serializable(Generic[T]):
                 str,
                 dumps(
                     self,
-                    strip_privates=True,
+                    strip_privates=strip_privates,
                     strip_nulls=True,
                     key_transformer=KEY_TRANSFORMER_CAMELCASE,
                 ),
@@ -42,11 +42,13 @@ class Serializable(Generic[T]):
         except JsonsError:
             return JSON_PARSE_ERROR
 
-    def to_json_file(self, file_name: str, file_path: str = "") -> None:
+    def to_json_file(
+        self, file_name: str, file_path: str = "", strip_privates=True
+    ) -> None:
         """
         Serialize an object to a json file
         """
-        write_json_file(self.to_json(), file_name, file_path)
+        write_json_file(self.to_json(strip_privates), file_name, file_path)
 
     @classmethod
     def from_json(cls, data: str) -> T:
