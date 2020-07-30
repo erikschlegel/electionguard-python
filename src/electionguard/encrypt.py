@@ -432,12 +432,10 @@ def encrypt_ballot(
         ballot.object_id,
         ballot.ballot_style,
         context.crypto_extended_base_hash,
+        seed_hash,
         encrypted_contests,
         random_master_nonce,
     )
-
-    # Generate tracking id
-    encrypted_ballot.generate_tracking_id(seed_hash)
 
     if not encrypted_ballot.tracking_id:
         return None

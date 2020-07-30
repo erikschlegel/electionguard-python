@@ -76,8 +76,8 @@ class PlaintextBallotSelection(ElectionObjectBase):
 
     vote: str
 
-    # determines if this is a placeholder selection
     is_placeholder_selection: bool = field(default=False)
+    """Determines if this is a placeholder selection"""
 
     # TODO: ISSUE #35: encrypt/decrypt
     extended_data: Optional[ExtendedData] = field(default=None)
@@ -145,11 +145,11 @@ class CiphertextSelection(Protocol):
 
     object_id: str
 
-    # The SelectionDescription hash
     description_hash: ElementModQ
+    """The SelectionDescription hash"""
 
-    # The encrypted representation of the selection
     ciphertext: ElGamalCiphertext
+    """The encrypted representation of the selection"""
 
 
 @dataclass
@@ -180,31 +180,27 @@ class CiphertextBallotSelection(
     By keeping the `proof` the nonce is not required fotor verify the encrypted selection.
     """
 
-    # The SelectionDescription hash
     description_hash: ElementModQ
+    """The SelectionDescription hash"""
 
-    # The encrypted representation of the vote field
     ciphertext: ElGamalCiphertext
+    """The encrypted representation of the vote field"""
 
-    # The hash of the encrypted values
     crypto_hash: ElementModQ
+    """The hash of the encrypted values"""
 
-    # determines if this is a placeholder selection
     is_placeholder_selection: bool = field(default=False)
+    """Determines if this is a placeholder selection"""
 
-    # The nonce used to generate the encryption
-    # this value is sensitive & should be treated as a secret
     nonce: Optional[ElementModQ] = field(default=None)
+    """The nonce used to generate the encryption. Sensitive & should be treated as a secret"""
 
-    # the proof that demonstrates the selection is an encryption of 0 or 1,
-    # and was encrypted using the `nonce`
     proof: Optional[DisjunctiveChaumPedersenProof] = field(default=None)
+    """The proof that demonstrates the selection is an encryption of 0 or 1, and was encrypted using the `nonce`"""
 
     # TODO: ISSUE #35: encrypt/decrypt
     extended_data: Optional[ElGamalCiphertext] = field(default=None)
-    """
-    encrypted representation of the extended_data field
-    """
+    """encrypted representation of the extended_data field"""
 
     def is_valid_encryption(
         self, seed_hash: ElementModQ, elgamal_public_key: ElementModP
@@ -320,10 +316,10 @@ class PlaintextBallotContest(ElectionObjectBase):
     while complete contests are passed into ElectionGuard when running encryption on an existing dataset.
     """
 
-    # collection of ballot selections
     ballot_selections: List[PlaintextBallotSelection] = field(
         default_factory=lambda: []
     )
+    """Collection of ballot selections"""
 
     def is_valid(
         self,
@@ -398,22 +394,23 @@ class CiphertextBallotContest(ElectionObjectBase, CryptoHashCheckable):
     then it is required in order to regenerate the proof.
     """
 
-    # Hash from contestDescription
     description_hash: ElementModQ
+    """Hash from contestDescription"""
 
-    # collection of ballot selections
     ballot_selections: List[CiphertextBallotSelection]
+    """Collection of ballot selections"""
 
-    # Hash of the encrypted values
     crypto_hash: ElementModQ
+    """Hash of the encrypted values"""
 
-    # the nonce used to generate the encryption
-    # this value is sensitive & should be treated as a secret
     nonce: Optional[ElementModQ] = None
+    """The nonce used to generate the encryption. Sensitive & should be treated as a secret"""
 
-    # the proof demonstrates the sum of the selections does not exceed the maximum
-    # available selections for the contest, and that the proof was generated with the nonce
     proof: Optional[ConstantChaumPedersenProof] = None
+    """
+    The proof demonstrates the sum of the selections does not exceed the maximum
+    available selections for the contest, and that the proof was generated with the nonce
+    """
 
     def aggregate_nonce(self) -> Optional[ElementModQ]:
         """
@@ -570,11 +567,11 @@ class PlaintextBallot(ElectionObjectBase):
     :field object_id: A unique Ballot ID that is relevant to the external system
     """
 
-    # The `object_id` of the `BallotStyle` in the `Election` Manifest
     ballot_style: str
+    """The `object_id` of the `BallotStyle` in the `Election` Manifest"""
 
-    # The list of contests for this ballot
     contests: List[PlaintextBallotContest]
+    """The list of contests for this ballot"""
 
     def is_valid(self, expected_ballot_style_id: str) -> bool:
         """
@@ -612,31 +609,34 @@ class CiphertextBallot(ElectionObjectBase, CryptoHashCheckable):
      :field object_id: A unique Ballot ID that is relevant to the external system
     """
 
-    # The `object_id` of the `BallotStyle` in the `Election` Manifest
     ballot_style: str
+    """The `object_id` of the `BallotStyle` in the `Election` Manifest"""
 
-    # The hash of the election metadata
     description_hash: ElementModQ
+    """Hash of the election metadata"""
 
-    # The list of contests for this ballot
+    seed_hash: ElementModQ
+    """The hash used to seed the encryption"""
+
     contests: List[CiphertextBallotContest]
+    """List of contests for this ballot"""
 
-    # the unique ballot tracking id for this ballot
     tracking_id: Optional[ElementModQ] = field(init=False)
+    """Unique ballot tracking id for this ballot"""
 
-    # timestamp in ticks
     timestamp: int = field(init=False)
+    """Timestamp in ticks"""
 
-    # the hash of the encrypted ballot representation
     crypto_hash: ElementModQ = field(init=False)
+    """The hash of the encrypted ballot representation"""
 
-    # the nonce used to encrypt this ballot
-    # this value is sensitive & should be treated as a secret
     nonce: Optional[ElementModQ] = field(default=None)
+    """The nonce used to encrypt this ballot. Sensitive & should be treated as a secret"""
 
     def __post_init__(self) -> None:
         self.crypto_hash = self.crypto_hash_with(self.description_hash)
         self.timestamp = to_ticks(datetime.utcnow())
+        self.generate_tracking_id(self.seed_hash)
 
     @property
     def hashed_ballot_nonce(self) -> Optional[ElementModQ]:
@@ -657,10 +657,10 @@ class CiphertextBallot(ElectionObjectBase, CryptoHashCheckable):
         """
         Generate a tracking id from given hash and existing ballot hash
         :param seed_hash: Seed hash whether starting or previous
-        :param date_time: Current date time
         """
+        self.seed_hash = seed_hash
         self.tracking_id = get_rotating_tracker_hash(
-            seed_hash, self.timestamp, self.crypto_hash
+            self.seed_hash, self.timestamp, self.crypto_hash
         )
 
     def get_tracker_code(self) -> Optional[str]:
@@ -795,6 +795,7 @@ def from_ciphertext_ballot(
         object_id=ballot.object_id,
         ballot_style=ballot.ballot_style,
         description_hash=ballot.description_hash,
+        seed_hash=ballot.seed_hash,
         contests=ballot.contests,
         tracking_id=ballot.tracking_id,
         timestamp=ballot.timestamp,
