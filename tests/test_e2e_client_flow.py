@@ -55,16 +55,11 @@ class ElectionGuardTestClient:
       string_representation = manifest.read()
       election_description = ElectionDescription.from_json(string_representation)
 
-    #some_secret_value: int = 12345
-
     builder = ElectionBuilder(
       number_of_guardians=self.NUMBER_OF_GUARDIANS,     # since we will generate a single public-private keypair, we set this to 1
       quorum=self.QUORUM,                  # since we will generate a single public-private keypair, we set this to 1
       description=election_description
     )
-
-    # Generate an ElGamal Keypair from a secret.  In a real election you would use the Key Ceremony instead.
-    #keypair: ElGamalKeyPair = elgamal_keypair_from_secret(int_to_q(some_secret_value))
 
     builder.set_public_key(self.joint_public_key)
     self.metadata, self.context = get_optional(builder.build())
